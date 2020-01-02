@@ -9,12 +9,26 @@ node("maven-label"){
       // Run the maven build
       withEnv(["MVN_HOME=$mvnHome"]) {
          if (isUnix()) {
-            sh '"$MVN_HOME/bin/mvn" -Dmaven.test.failure.ignore clean deploy sonar:sonar -Dsonar.host.url=http://http://172.31.42.51:9000/'
+            sh '"$MVN_HOME/bin/mvn" -Dmaven.test.failure.ignore clean package sonar:sonar -Dsonar.host.url=http://http://172.31.42.51:9000/'
          } else {
             bat(/"%MVN_HOME%\bin\mvn" -Dmaven.test.failure.ignore clean package/)
          }
       }
    }
+    stage('SonarQube analysis') {
+    withSonarQubeEnv('My SonarQube Server') {
+        sh 'mvn clean package sonar:sonar'
+    } 
+  }
+}
+stage("Quality Gate"){
+    timeout(time: 5, unit: 'MINUTES') { 
+    def qg = waitForQualityGate() 
+    if (qg.status != 'OK') {
+        error "Pipeline aborted due to quality gate failure: ${qg.status}"
+    }
+  }
+}
    stage('Results') {
       junit '**/target/surefire-reports/TEST-*.xml'
       archiveArtifacts 'target/*.jar'
@@ -22,4 +36,6 @@ node("maven-label"){
    stage("validate"){
 echo "validate"
    }
+  
 }
+
